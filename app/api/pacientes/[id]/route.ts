@@ -64,6 +64,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
  * DELETE — borrado lógico (deleted_at), no destructivo. Un registro
  * clínico o pre-clínico no se destruye nunca en este sistema; se oculta
  * de los listados. Consistente con el resto del esquema.
+ *
+ * No se encadena `.select()`/`.single()`: la política SELECT oculta las
+ * filas con `deleted_at` no nulo, así que pedir de vuelta la fila recién
+ * eliminada devolvería 0 filas. Solo importa si el UPDATE tuvo error.
  */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -71,9 +75,25 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
+  // Cliente de sesión (no service role): la política `usuarios_self`
+  // permite a cada usuario leer únicamente su propia fila.
+  const { data: usuario, error: errorUsuario } = await supabase
+    .from('usuarios')
+    .select('tenant_id')
+    .eq('auth_id', user.id)
+    .maybeSingle();
+
+  if (errorUsuario) {
+    return NextResponse.json({ error: `No se pudo verificar tu usuario: ${errorUsuario.message}` }, { status: 500 });
+  }
+  if (!usuario || !(usuario as any).tenant_id) {
+    return NextResponse.json({ error: 'Tu usuario no está vinculado a un consultorio (tenant).' }, { status: 403 });
+  }
+
   const { error } = await (supabase.from('pacientes') as any)
     .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('tenant_id', (usuario as any).tenant_id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

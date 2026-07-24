@@ -2,41 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { PacienteSchema } from '@/lib/validation/paciente';
 
-/**
- * GET /api/pacientes?q=texto
- * Lista pacientes del tenant del usuario autenticado. RLS filtra el
- * tenant automáticamente (ver migración 0004) — esta ruta no necesita
- * (ni debe) construir ese filtro a mano.
- */
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
-  const q = req.nextUrl.searchParams.get('q')?.trim();
+  const { data, error } = await supabase.from('pacientes').select('*').eq('id', id).is('deleted_at', null).single();
+  if (error || !data) return NextResponse.json({ error: 'Paciente no encontrado' }, { status: 404 });
 
-  let query = supabase
-    .from('pacientes')
-    .select('*')
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false });
-
-  if (q) {
-    // busca por nombre, apellido o documento — ilike cubre búsquedas
-    // parciales sin necesitar el índice de texto completo para listas chicas
-    query = query.or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,documento.ilike.%${q}%`);
-  }
-
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ pacientes: data });
+  return NextResponse.json({ paciente: data });
 }
 
-/**
- * POST /api/pacientes — registra un paciente nuevo.
- */
-export async function POST(req: NextRequest) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
@@ -47,48 +26,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', detalles: parsed.error.flatten().fieldErrors }, { status: 422 });
   }
 
-  // Cliente de sesión del usuario (mismo `supabase` de arriba, ya
-  // autenticado por cookie). La política `usuarios_self` (ver migración
-  // 0004) permite a cada usuario leer únicamente su propia fila —
-  // alcanza para resolver el tenant sin necesitar service role.
-  const { data: usuario, error: errorUsuario } = await supabase
-    .from('usuarios')
-    .select('tenant_id')
-    .eq('auth_id', user.id)
-    .maybeSingle();
-
-  if (errorUsuario) {
-    // esto es lo que antes se perdía: un error real de Postgres/RLS quedaba
-    // enmascarado como "no vinculado a un tenant". Ahora queda en los logs
-    // del servidor (Vercel → Deployments → Functions → Logs) para diagnosticar.
-    console.error('[api/pacientes POST] error consultando usuarios:', errorUsuario);
-    return NextResponse.json({ error: `No se pudo verificar tu usuario: ${errorUsuario.message}` }, { status: 500 });
-  }
-
-  if (!usuario) {
-    console.error("403 pacientes:", {
-      usuario,
-      errorUsuario,
-      tenantId: (usuario as any)?.tenant_id,
-      userId: user.id
-    });
-    return NextResponse.json({ error: 'Tu usuario no está vinculado a un consultorio (tenant). Contactá al administrador.' }, { status: 403 });
-  }
-
-  if (!(usuario as any).tenant_id) {
-    console.error("403 pacientes:", {
-      usuario,
-      errorUsuario,
-      tenantId: (usuario as any)?.tenant_id,
-      userId: user.id
-    });
-    return NextResponse.json({ error: 'Tu usuario existe pero no tiene tenant_id asignado. Revisá la fila en la tabla usuarios.' }, { status: 403 });
-  }
-
   const v = parsed.data;
   const { data, error } = await (supabase.from('pacientes') as any)
-    .insert({
-      tenant_id: (usuario as any).tenant_id,
+    .update({
       nombre: v.nombre,
       apellido: v.apellido,
       documento: v.documento || null,
@@ -105,19 +45,57 @@ export async function POST(req: NextRequest) {
       medicamentos_actuales: v.medicamentosActuales || null,
       alergias: v.alergias || null,
       observaciones: v.observaciones || null,
-      // requerido por el esquema legacy; el trigger lo recalcula si mandamos fecha_nacimiento
-      edad: 0,
     })
+    .eq('id', id)
     .select()
     .single();
 
   if (error) {
-    // el índice único de documento por tenant devuelve este código si ya existe
     if ((error as any).code === '23505') {
       return NextResponse.json({ error: 'Ya existe un paciente con ese documento.' }, { status: 409 });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ paciente: data }, { status: 201 });
+  return NextResponse.json({ paciente: data });
+}
+
+/**
+ * DELETE — borrado lógico (deleted_at), no destructivo. Un registro
+ * clínico o pre-clínico no se destruye nunca en este sistema; se oculta
+ * de los listados. Consistente con el resto del esquema.
+ *
+ * No se encadena `.select()`/`.single()`: la política SELECT oculta las
+ * filas con `deleted_at` no nulo, así que pedir de vuelta la fila recién
+ * eliminada devolvería 0 filas. Solo importa si el UPDATE tuvo error.
+ */
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+
+  // Cliente de sesión (no service role): la política `usuarios_self`
+  // permite a cada usuario leer únicamente su propia fila.
+  const { data: usuario, error: errorUsuario } = await supabase
+    .from('usuarios')
+    .select('tenant_id')
+    .eq('auth_id', user.id)
+    .maybeSingle();
+
+  if (errorUsuario) {
+    return NextResponse.json({ error: `No se pudo verificar tu usuario: ${errorUsuario.message}` }, { status: 500 });
+  }
+  if (!usuario || !(usuario as any).tenant_id) {
+    return NextResponse.json({ error: 'Tu usuario no está vinculado a un consultorio (tenant).' }, { status: 403 });
+  }
+
+  const { error } = await (supabase.from('pacientes') as any)
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('tenant_id', (usuario as any).tenant_id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
 }
