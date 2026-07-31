@@ -40,6 +40,9 @@ export default async function FichaPacientePage({ params }: { params: Promise<{ 
           <p className="mt-1 text-[12.5px] text-choco-soft">{calcularEdad(pac.fecha_nacimiento)} · {pac.sexo}</p>
         </div>
         <div className="flex gap-2">
+          <Link href={`/pacientes/${id}/historia`} className="rounded-md bg-choco-deep px-3.5 py-2 text-[13px] text-crema hover:bg-choco">
+            Historia clínica
+          </Link>
           <Link href={`/pacientes/editar/${id}`} className="rounded-md border border-linea-fuerte px-3.5 py-2 text-[13px] text-choco-deep hover:bg-crema">
             Editar
           </Link>
