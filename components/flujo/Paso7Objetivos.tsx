@@ -24,6 +24,7 @@ export function Paso7Objetivos({ fase, seleccionados, onToggle }: Paso7Objetivos
             return (
               <button
                 key={o}
+                type="button"
                 onClick={() => onToggle(i)}
                 className={[
                   'mb-1.5 flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-[13.5px]',
