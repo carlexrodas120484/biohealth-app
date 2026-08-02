@@ -8,6 +8,7 @@ export interface MockResult {
 
 interface MockUser {
   id: string;
+  email?: string;
 }
 
 /**
@@ -22,7 +23,11 @@ interface MockUser {
  * dejan pasar el resultado precocinado hasta el punto terminal
  * (`single`, `maybeSingle`, o el `await` directo del builder).
  */
-export function crearSupabaseMock(user: MockUser | null, queue: MockResult[]) {
+export function crearSupabaseMock(
+  user: MockUser | null,
+  queue: MockResult[],
+  opciones?: { signInWithPasswordError?: unknown }
+) {
   let indice = 0;
   const llamadasFrom: string[] = [];
 
@@ -57,6 +62,10 @@ export function crearSupabaseMock(user: MockUser | null, queue: MockResult[]) {
   const client = {
     auth: {
       getUser: vi.fn(async () => ({ data: { user } })),
+      signInWithPassword: vi.fn(async () => ({
+        data: opciones?.signInWithPasswordError ? null : { user },
+        error: opciones?.signInWithPasswordError ?? null,
+      })),
     },
     from,
   };
