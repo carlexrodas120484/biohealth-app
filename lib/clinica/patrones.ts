@@ -221,7 +221,7 @@ const REGLAS: Regla[] = [
 
 export const CODIGOS_PATRONES = REGLAS.map(r => r.codigo);
 
-function prioridadDesdeNivel(nivel: Severidad): Prioridad {
+export function prioridadDesdeNivel(nivel: Severidad): Prioridad {
   switch (nivel) {
     case 'muy_alta': return 'urgente';
     case 'alta': return 'alta';
