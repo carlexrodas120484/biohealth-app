@@ -28,3 +28,29 @@ export const PacienteSchema = z.object({
 export type PacienteFormValues = z.infer<typeof PacienteSchema>;
 
 export const CAMPOS_OBLIGATORIOS: (keyof PacienteFormValues)[] = ['nombre', 'apellido', 'sexo'];
+
+/**
+ * Traduce los valores validados del formulario a columnas de la tabla
+ * `pacientes`. Compartido entre POST y PATCH para que ambos escriban
+ * exactamente los mismos campos.
+ */
+export function mapearPacienteADB(v: PacienteFormValues) {
+  return {
+    nombre: v.nombre,
+    apellido: v.apellido,
+    documento: v.documento || null,
+    fecha_nacimiento: v.fechaNacimiento || null,
+    sexo: v.sexo,
+    telefono: v.telefono || null,
+    correo: v.correo || null,
+    direccion: v.direccion || null,
+    ciudad: v.ciudad || null,
+    ocupacion: v.ocupacion || null,
+    motivo_consulta: v.motivoConsulta || null,
+    antecedentes_personales: v.antecedentesPersonales || null,
+    antecedentes_familiares: v.antecedentesFamiliares || null,
+    medicamentos_actuales: v.medicamentosActuales || null,
+    alergias: v.alergias || null,
+    observaciones: v.observaciones || null,
+  };
+}
