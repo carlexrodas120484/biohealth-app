@@ -334,3 +334,40 @@ export function generarAlertas(entrada: {
 
   return alertas;
 }
+
+/**
+ * Sugerencias de principios activos por objetivo terapéutico confirmado
+ * (`objetivos_terapeuticos.objetivos`). Vivía duplicada dentro de la
+ * ruta de formulación; se centraliza acá para que el motor de IA
+ * clínica (lib/clinica/motorIA.ts) pueda ofrecer las mismas
+ * recomendaciones ortomoleculares sin mantener dos copias.
+ */
+export type SugerenciaPrincipioActivo = {
+  id: string; nombre: string; objetivo: string; precaucion: string; evidencia: 'B' | 'C' | 'D'; fuente: string;
+};
+
+export const SUGERENCIAS_POR_OBJETIVO: Record<string, SugerenciaPrincipioActivo[]> = {
+  'Reparar mucosa intestinal': [
+    { id: 'l-glutamina', nombre: 'L-glutamina', objetivo: 'Reparar mucosa intestinal', precaucion: 'Individualizar en enfermedad hepática, renal o contexto oncológico.', evidencia: 'C', fuente: 'Material docente aportado' },
+    { id: 'zinc-carnosina', nombre: 'Zinc-L-carnosina', objetivo: 'Reparar mucosa intestinal', precaucion: 'Considerar aporte total de zinc y uso prolongado.', evidencia: 'C', fuente: 'Material docente aportado' },
+  ],
+  'Disminuir inflamación': [
+    { id: 'omega-3', nombre: 'Omega-3 (EPA + DHA)', objetivo: 'Disminuir inflamación', precaucion: 'Revisar anticoagulantes, antiagregantes y riesgo hemorrágico.', evidencia: 'B', fuente: 'Manual profesional; validar indicación' },
+    { id: 'curcumina', nombre: 'Curcumina', objetivo: 'Disminuir inflamación', precaucion: 'Revisar anticoagulación, patología biliar e interacciones.', evidencia: 'C', fuente: 'Material docente aportado' },
+  ],
+  'Mejorar microbiota': [
+    { id: 'probiotico', nombre: 'Probiótico con cepa identificada', objetivo: 'Mejorar microbiota', precaucion: 'Seleccionar cepa según indicación; cautela en inmunosupresión grave.', evidencia: 'C', fuente: 'Material docente aportado' },
+    { id: 's-boulardii', nombre: 'Saccharomyces boulardii', objetivo: 'Mejorar microbiota', precaucion: 'Evitar en pacientes críticos, inmunosupresión grave o con catéter venoso central.', evidencia: 'C', fuente: 'Material docente aportado' },
+  ],
+  'Optimizar digestión enzimática': [
+    { id: 'enzimas-digestivas', nombre: 'Complejo de enzimas digestivas', objetivo: 'Optimizar digestión enzimática', precaucion: 'Definir composición según clínica; no sustituye evaluación pancreática o biliar.', evidencia: 'D', fuente: 'Resumen de fórmula aportado' },
+  ],
+  'Restaurar pH gástrico': [
+    { id: 'betaina-hcl', nombre: 'Betaína HCl', objetivo: 'Restaurar pH gástrico', precaucion: 'No usar sin evaluar gastritis, úlcera, reflujo y medicación gastroprotectora.', evidencia: 'D', fuente: 'Formulario aportado' },
+  ],
+};
+
+/** Aplana las sugerencias de todos los objetivos confirmados, sin duplicar por objetivo repetido. */
+export function sugerirPrincipiosActivos(objetivos: string[]): SugerenciaPrincipioActivo[] {
+  return objetivos.flatMap(o => SUGERENCIAS_POR_OBJETIVO[o] ?? []);
+}

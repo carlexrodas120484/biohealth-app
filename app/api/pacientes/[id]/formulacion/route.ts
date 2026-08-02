@@ -5,7 +5,7 @@ import { resolverTenantId } from '@/lib/tenant';
 import { esUuidValido } from '@/lib/validation/id';
 import { IngredientesSchema, EstadoFormulacionSchema, type IngredienteInput } from '@/lib/validation/formulacion';
 import {
-  construirPreparaciones, generarAlertas, calcularCantidadParaDuracion,
+  construirPreparaciones, generarAlertas, calcularCantidadParaDuracion, sugerirPrincipiosActivos,
   CAPACIDAD_CAPSULA_MG_DEFECTO, VERSION_MOTOR_FORMULACION,
   type InfoCatalogo, type PacienteContextoFormulacion, type PreparacionCalculada, type Alerta,
 } from '@/lib/clinica/formulacion';
@@ -41,28 +41,6 @@ const DatosSchema = z.object({
 });
 
 const DURACION_DEFECTO_DIAS = 30;
-
-type Sugerencia = { id: string; nombre: string; objetivo: string; precaucion: string; evidencia: 'B' | 'C' | 'D'; fuente: string };
-const SUGERENCIAS: Record<string, Sugerencia[]> = {
-  'Reparar mucosa intestinal': [
-    { id: 'l-glutamina', nombre: 'L-glutamina', objetivo: 'Reparar mucosa intestinal', precaucion: 'Individualizar en enfermedad hepática, renal o contexto oncológico.', evidencia: 'C', fuente: 'Material docente aportado' },
-    { id: 'zinc-carnosina', nombre: 'Zinc-L-carnosina', objetivo: 'Reparar mucosa intestinal', precaucion: 'Considerar aporte total de zinc y uso prolongado.', evidencia: 'C', fuente: 'Material docente aportado' },
-  ],
-  'Disminuir inflamación': [
-    { id: 'omega-3', nombre: 'Omega-3 (EPA + DHA)', objetivo: 'Disminuir inflamación', precaucion: 'Revisar anticoagulantes, antiagregantes y riesgo hemorrágico.', evidencia: 'B', fuente: 'Manual profesional; validar indicación' },
-    { id: 'curcumina', nombre: 'Curcumina', objetivo: 'Disminuir inflamación', precaucion: 'Revisar anticoagulación, patología biliar e interacciones.', evidencia: 'C', fuente: 'Material docente aportado' },
-  ],
-  'Mejorar microbiota': [
-    { id: 'probiotico', nombre: 'Probiótico con cepa identificada', objetivo: 'Mejorar microbiota', precaucion: 'Seleccionar cepa según indicación; cautela en inmunosupresión grave.', evidencia: 'C', fuente: 'Material docente aportado' },
-    { id: 's-boulardii', nombre: 'Saccharomyces boulardii', objetivo: 'Mejorar microbiota', precaucion: 'Evitar en pacientes críticos, inmunosupresión grave o con catéter venoso central.', evidencia: 'C', fuente: 'Material docente aportado' },
-  ],
-  'Optimizar digestión enzimática': [
-    { id: 'enzimas-digestivas', nombre: 'Complejo de enzimas digestivas', objetivo: 'Optimizar digestión enzimática', precaucion: 'Definir composición según clínica; no sustituye evaluación pancreática o biliar.', evidencia: 'D', fuente: 'Resumen de fórmula aportado' },
-  ],
-  'Restaurar pH gástrico': [
-    { id: 'betaina-hcl', nombre: 'Betaína HCl', objetivo: 'Restaurar pH gástrico', precaucion: 'No usar sin evaluar gastritis, úlcera, reflujo y medicación gastroprotectora.', evidencia: 'D', fuente: 'Formulario aportado' },
-  ],
-};
 
 const ADVERTENCIA_FORMULACION =
   'Asistente de formulación: organiza y calcula presentación a partir de datos ya definidos. No prescribe ni aprueba automáticamente — requiere revisión y aprobación médica.';
@@ -176,7 +154,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Confirme primero los objetivos terapéuticos.' }, { status: 409 });
     }
 
-    const sugerencias = (objetivos.objetivos ?? []).flatMap(o => SUGERENCIAS[o] ?? []);
+    const sugerencias = sugerirPrincipiosActivos(objetivos.objetivos ?? []);
     const guardada = formula.data as {
       fase?: string; objetivos?: string[]; items?: unknown[]; revision_clinica?: unknown;
       seguridad_revisada?: boolean; firmada?: boolean; firmada_en?: string | null;
