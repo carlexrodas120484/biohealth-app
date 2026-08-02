@@ -42,6 +42,7 @@ export function crearSupabaseMock(user: MockUser | null, queue: MockResult[]) {
       select: vi.fn(() => builder),
       insert: vi.fn(() => builder),
       update: vi.fn(() => builder),
+      upsert: vi.fn(() => builder),
       eq: vi.fn(() => builder),
       is: vi.fn(() => builder),
       or: vi.fn(() => builder),
