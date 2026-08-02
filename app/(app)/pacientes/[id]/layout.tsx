@@ -5,7 +5,7 @@ import { StepRail } from '@/components/flujo/StepRail';
 
 const RUTA_POR_PASO = [
   'historia', 'cuestionario', 'bioescaner', 'diagnostico', 'ipt',
-  'fase', 'objetivos', 'formulacion', 'nutricion', 'control',
+  'fase', 'objetivos', 'formulacion', 'nutricion', 'control', 'informes',
 ];
 
 export default function ConsultaLayout({ children }: { children: React.ReactNode }) {

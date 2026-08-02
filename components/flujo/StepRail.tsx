@@ -2,16 +2,16 @@
 
 const PASOS = [
   'Historia', 'Cuestionario', 'Bioescáner', 'Diagnóstico', 'IPT',
-  'Fase', 'Objetivos', 'Fórmula', 'Nutrición', 'Control',
+  'Fase', 'Objetivos', 'Fórmula', 'Nutrición', 'Control', 'Informes',
 ];
 
 interface StepRailProps {
-  pasoActual: number; // 1-10
+  pasoActual: number; // 1-11
   onIrAPaso: (paso: number) => void;
 }
 
 /**
- * Barra de progreso de 10 pasos. Portada del prototipo: aparece siempre
+ * Barra de progreso de 11 pasos. Portada del prototipo: aparece siempre
  * que hay una consulta abierta, y es el eje de navegación del Método
  * BioHealth®. El médico siempre sabe dónde está en el flujo.
  */

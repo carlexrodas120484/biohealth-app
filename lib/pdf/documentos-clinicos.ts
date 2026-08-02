@@ -42,7 +42,7 @@ type FormulacionDocumento = {
   version_reglas?: string | null;
 };
 
-const PROFESIONAL = {
+export const PROFESIONAL = {
   nombre: process.env.MEDICO_NOMBRE ?? 'Dr. Carlos Rubén Rodas Palacios',
   registro: process.env.MEDICO_REGISTRO ?? '12.930',
   especialidad: process.env.MEDICO_ESPECIALIDAD ?? 'Medicina Familiar y Medicina Ortomolecular',
@@ -71,13 +71,13 @@ const CSS = `<style>
   footer { margin-top: 24px; color: #8c7968; font-size: 8.5px; }
 </style>`;
 
-function e(valor: unknown) {
+export function e(valor: unknown) {
   return String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 }
 
 function nombrePaciente(p: PacienteDocumento) { return [p.nombre, p.apellido].filter(Boolean).join(' '); }
-function fecha(valor?: string | null) { return valor ? new Date(valor).toLocaleDateString('es-PY') : '—'; }
-function edad(fechaNacimiento?: string | null) {
+export function fecha(valor?: string | null) { return valor ? new Date(valor).toLocaleDateString('es-PY') : '—'; }
+export function edad(fechaNacimiento?: string | null) {
   if (!fechaNacimiento) return '—';
   const n = new Date(fechaNacimiento); const h = new Date();
   let a = h.getFullYear() - n.getFullYear();

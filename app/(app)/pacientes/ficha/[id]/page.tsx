@@ -46,6 +46,9 @@ export default async function FichaPacientePage({ params }: { params: Promise<{ 
           <Link href={`/pacientes/${id}/plan-terapeutico`} className="rounded-md border border-linea-fuerte px-3.5 py-2 text-[13px] text-choco-deep hover:bg-crema">
             Plan terapéutico
           </Link>
+          <Link href={`/pacientes/${id}/informes`} className="rounded-md border border-linea-fuerte px-3.5 py-2 text-[13px] text-choco-deep hover:bg-crema">
+            Informes y PDF
+          </Link>
           <Link href={`/pacientes/editar/${id}`} className="rounded-md border border-linea-fuerte px-3.5 py-2 text-[13px] text-choco-deep hover:bg-crema">
             Editar
           </Link>

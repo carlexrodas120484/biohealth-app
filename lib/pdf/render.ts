@@ -46,15 +46,39 @@ async function getBrowser(): Promise<Browser> {
   return browserPromise;
 }
 
-export async function renderPdf(html: string): Promise<Buffer> {
+export type OpcionesRenderPdf = {
+  /** Activa encabezado/pie de página nativos de Chromium (numeración incluida). */
+  footerTemplate?: string;
+  headerTemplate?: string;
+  margin?: { top?: string; bottom?: string; left?: string; right?: string };
+};
+
+// Márgenes A4 por defecto. El margin que recibe page.pdf() manda sobre
+// cualquier `@page { margin }` del CSS —Chromium lo ignora en cuanto se
+// pasa este objeto—, así que el margen real del documento se define acá,
+// no en la plantilla HTML.
+const MARGEN_DEFECTO = { top: '16mm', bottom: '14mm', left: '17mm', right: '17mm' };
+const MARGEN_CON_PIE = { top: '16mm', bottom: '18mm', left: '17mm', right: '17mm' };
+
+export async function renderPdf(html: string, opciones?: OpcionesRenderPdf): Promise<Buffer> {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
     await page.setContent(html, { waitUntil: 'networkidle0' });
+    const conPieDePagina = Boolean(opciones?.footerTemplate || opciones?.headerTemplate);
+    const margenBase = conPieDePagina ? MARGEN_CON_PIE : MARGEN_DEFECTO;
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '0', bottom: '0', left: '0', right: '0' },
+      displayHeaderFooter: conPieDePagina,
+      headerTemplate: opciones?.headerTemplate ?? '<span></span>',
+      footerTemplate: opciones?.footerTemplate ?? '<span></span>',
+      margin: {
+        top: opciones?.margin?.top ?? margenBase.top,
+        bottom: opciones?.margin?.bottom ?? margenBase.bottom,
+        left: opciones?.margin?.left ?? margenBase.left,
+        right: opciones?.margin?.right ?? margenBase.right,
+      },
     });
     return Buffer.from(pdf);
   } finally {

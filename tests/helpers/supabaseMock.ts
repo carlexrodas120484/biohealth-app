@@ -52,6 +52,7 @@ export function crearSupabaseMock(
       is: vi.fn(() => builder),
       or: vi.fn(() => builder),
       order: vi.fn(() => builder),
+      limit: vi.fn(() => builder),
       single: vi.fn(() => resolved()),
       maybeSingle: vi.fn(() => resolved()),
       then: (resolve: any, reject: any) => resolved().then(resolve, reject),
