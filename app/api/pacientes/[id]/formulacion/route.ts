@@ -9,6 +9,7 @@ import {
   CAPACIDAD_CAPSULA_MG_DEFECTO, VERSION_MOTOR_FORMULACION,
   type InfoCatalogo, type PacienteContextoFormulacion, type PreparacionCalculada, type Alerta,
 } from '@/lib/clinica/formulacion';
+import { principiosValidadosAInfoCatalogo, type PrincipioValidadoParaMotor } from '@/lib/clinica/baseConocimiento';
 
 // ---- Esquemas del flujo existente (items de texto libre, firma con
 // contraseña, revisión clínica): sin cambios de forma — los sigue
@@ -81,6 +82,18 @@ async function objetivosConfirmados(ctx: Exclude<Awaited<ReturnType<typeof conte
   return data as { fase?: string; objetivos?: string[]; confirmado?: boolean } | null;
 }
 
+/**
+ * Combina dos fuentes: el catálogo plano preexistente
+ * (`catalogo_formulacion`, migración 0012) y la Base de Conocimiento
+ * Clínica nueva (`principios_activos` + tablas relacionadas) —
+ * de esta última SÓLO entran los principios en estado 'validado';
+ * cualquier otro estado (borrador/en_revision/archivado) es invisible
+ * acá aunque tenga datos cargados. Donde un mismo nombre exista en las
+ * dos fuentes, gana la Base de Conocimiento por ser la más auditada.
+ * Nada de esto rompe formulaciones ya guardadas: sólo cambia de dónde
+ * sale la información de apoyo (cápsula, sabor, incompatibilidades)
+ * para un nombre dado.
+ */
 async function catalogoPorNombreNormalizado(
   supabase: Awaited<ReturnType<typeof createClient>>,
   tenantId: string
@@ -106,8 +119,77 @@ async function catalogoPorNombreNormalizado(
     mapa.set(String(fila.nombre).trim().toLowerCase(), info);
     for (const s of (fila.sinonimos as string[] | null) ?? []) mapa.set(s.trim().toLowerCase(), info);
   }
+
+  const validados = await catalogoDesdeBaseConocimiento(supabase, tenantId);
+  for (const [clave, info] of validados) mapa.set(clave, info);
+
   return mapa;
 }
+
+async function catalogoDesdeBaseConocimiento(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tenantId: string
+): Promise<Map<string, InfoCatalogo>> {
+  const { data: principios } = await supabase
+    .from('principios_activos')
+    .select('id, nombre_canonico, estado')
+    .eq('estado', 'validado')
+    .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`);
+
+  const filas = (principios ?? []) as Array<{ id: string; nombre_canonico: string; estado: string }>;
+  if (filas.length === 0) return new Map();
+  const ids = filas.map(f => f.id);
+
+  const [sinonimos, presentaciones, propiedades, dosisMaxima, incompatibilidades] = await Promise.all([
+    supabase.from('sinonimos_principios').select('principio_id, sinonimo').in('principio_id', ids),
+    supabase.from('presentaciones_farmaceuticas').select('principio_id, forma, capacidad_capsula_mg, preferida').in('principio_id', ids),
+    supabase.from('propiedades_organolepticas').select('principio_id, intensidad_sabor, solubilidad').in('principio_id', ids),
+    supabase.from('dosis_principios').select('principio_id, valor').in('principio_id', ids).eq('tipo', 'maxima'),
+    supabase.from('incompatibilidades_formulacion').select('principio_id, principio_incompatible:principios_activos!incompatibilidades_formulacion_principio_incompatible_id_fkey(nombre_canonico)').in('principio_id', ids),
+  ]);
+
+  const agrupar = <T extends { principio_id: string }>(filas: T[] | null | undefined) => {
+    const mapa = new Map<string, T[]>();
+    for (const f of filas ?? []) { if (!mapa.has(f.principio_id)) mapa.set(f.principio_id, []); mapa.get(f.principio_id)!.push(f); }
+    return mapa;
+  };
+
+  const sinonimosPorId = agrupar(sinonimos.data as Array<{ principio_id: string; sinonimo: string }> | null);
+  const presentacionesPorId = agrupar(presentaciones.data as Array<{ principio_id: string; forma: string; capacidad_capsula_mg: number | null; preferida: boolean }> | null);
+  const propiedadesPorId = agrupar(propiedades.data as Array<{ principio_id: string; intensidad_sabor: number | null; solubilidad: string | null }> | null);
+  const dosisPorId = agrupar(dosisMaxima.data as Array<{ principio_id: string; valor: number }> | null);
+  const incompatibilidadesPorId = agrupar(incompatibilidades.data as unknown as Array<{ principio_id: string; principio_incompatible: { nombre_canonico: string } | null }> | null);
+
+  const entradas: PrincipioValidadoParaMotor[] = filas.map(p => {
+    const presentacionPreferida = (presentacionesPorId.get(p.id) ?? []).find(pf => pf.preferida) ?? (presentacionesPorId.get(p.id) ?? [])[0];
+    const props = (propiedadesPorId.get(p.id) ?? [])[0];
+    const maxima = (dosisPorId.get(p.id) ?? [])[0];
+    return {
+      nombreCanonico: p.nombre_canonico,
+      estado: p.estado as PrincipioValidadoParaMotor['estado'],
+      sinonimos: (sinonimosPorId.get(p.id) ?? []).map(s => s.sinonimo),
+      capacidadCapsulaMg: presentacionPreferida?.capacidad_capsula_mg ?? null,
+      intensidadSabor: props?.intensidad_sabor ?? null,
+      solubilidad: props?.solubilidad ?? null,
+      formaFarmaceuticaPreferida: presentacionPreferida?.forma ?? null,
+      incompatibilidadesNombres: (incompatibilidadesPorId.get(p.id) ?? []).map(i => i.principio_incompatible?.nombre_canonico).filter((n): n is string => Boolean(n)),
+      dosisMaximaMg: maxima?.valor ?? null,
+    };
+  });
+
+  return principiosValidadosAInfoCatalogo(entradas);
+}
+
+// Nota de alcance: las reglas de formulación (capacidad de cápsula por
+// defecto, umbral de sobre, amargor que bloquea) ya son configurables
+// a nivel de motor y de base de datos (tabla `reglas_formulacion`,
+// ver migración 0024 y ReglasFormulacion en lib/clinica/formulacion.ts)
+// y tienen su propia fila sembrada con los valores por defecto
+// (1000 mg / 2 cápsulas / amargor 3) que ya usaba este motor. Falta
+// sólo que esta ruta las lea dinámicamente por tenant en vez del
+// default del módulo — se deja para una siguiente iteración, para no
+// sumar otra consulta nueva a esta misma migración junto con la de
+// principios validados de abajo.
 
 /** Resuelve, para cada ingrediente que escribió el médico, su entrada de catálogo (si existe) por nombre o sinónimo. */
 function mapearIngredientesAlCatalogo(ingredientes: IngredienteInput[], normalizado: Map<string, InfoCatalogo>): Map<string, InfoCatalogo> {

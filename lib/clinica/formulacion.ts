@@ -93,6 +93,25 @@ export function excedeLimite(ingrediente: IngredienteFormula, catalogo: InfoCata
 }
 
 /**
+ * Reglas de formulación configurables (antes eran sólo las constantes
+ * de arriba). Vienen de `reglas_formulacion` — ver lib/clinica/
+ * baseConocimiento.ts — con estos mismos valores como fallback, así
+ * que no llamar con este parámetro es exactamente el comportamiento
+ * de antes.
+ */
+export type ReglasFormulacion = {
+  capacidadCapsulaMgDefecto: number;
+  limiteCapsulasAntesDeSobre: number;
+  amargorBloqueaSobreAutomatico: number;
+};
+
+export const REGLAS_FORMULACION_DEFECTO: ReglasFormulacion = {
+  capacidadCapsulaMgDefecto: CAPACIDAD_CAPSULA_MG_DEFECTO,
+  limiteCapsulasAntesDeSobre: LIMITE_CAPSULAS_ANTES_DE_SOBRE,
+  amargorBloqueaSobreAutomatico: AMARGOR_QUE_BLOQUEA_SOBRE_AUTOMATICO,
+};
+
+/**
  * Regla 3 y 4: decide cápsula vs. sobre, salvo que alguna condición de
  * la regla 4 bloquee el cambio automático — en ese caso se mantiene en
  * cápsula (o la presentación preferida del catálogo si no es "sobre")
@@ -101,18 +120,19 @@ export function excedeLimite(ingrediente: IngredienteFormula, catalogo: InfoCata
 export function calcularPresentacion(
   ingrediente: IngredienteFormula,
   catalogo: InfoCatalogo | null,
-  incompatibleConOtroDeLaPreparacion: boolean
+  incompatibleConOtroDeLaPreparacion: boolean,
+  reglas: ReglasFormulacion = REGLAS_FORMULACION_DEFECTO
 ): {
   capsulasPorToma: number;
   presentacionSugerida: Presentacion;
   cambioAutomaticoBloqueado: boolean;
   motivosBloqueo: string[];
 } {
-  const capacidad = catalogo?.capacidadCapsulaMg ?? CAPACIDAD_CAPSULA_MG_DEFECTO;
+  const capacidad = catalogo?.capacidadCapsulaMg ?? reglas.capacidadCapsulaMgDefecto;
   const capsulasPorToma = calcularCapsulasPorToma(ingrediente.dosisPorTomaMg, capacidad);
 
   const motivosBloqueo: string[] = [];
-  if (catalogo && catalogo.amargor >= AMARGOR_QUE_BLOQUEA_SOBRE_AUTOMATICO) {
+  if (catalogo && catalogo.amargor >= reglas.amargorBloqueaSobreAutomatico) {
     motivosBloqueo.push('El principio es muy amargo: no se cambia a sobre automáticamente.');
   }
   if (catalogo?.solubleEnAgua === false) {
@@ -139,7 +159,7 @@ export function calcularPresentacion(
         ? (catalogo.presentacionPreferida as Presentacion)
         : 'capsula';
   } else {
-    presentacionSugerida = capsulasPorToma > LIMITE_CAPSULAS_ANTES_DE_SOBRE ? 'sobre' : 'capsula';
+    presentacionSugerida = capsulasPorToma > reglas.limiteCapsulasAntesDeSobre ? 'sobre' : 'capsula';
   }
 
   return { capsulasPorToma, presentacionSugerida, cambioAutomaticoBloqueado, motivosBloqueo };
@@ -201,7 +221,8 @@ export type PreparacionCalculada = {
 /** Aplica las reglas 1-6, 9 y 12 y arma las preparaciones agrupadas por horario. */
 export function construirPreparaciones(
   ingredientes: IngredienteFormula[],
-  catalogoPorNombre: Map<string, InfoCatalogo>
+  catalogoPorNombre: Map<string, InfoCatalogo>,
+  reglas: ReglasFormulacion = REGLAS_FORMULACION_DEFECTO
 ): PreparacionCalculada[] {
   const porHorario = agruparPorHorario(ingredientes);
   const preparaciones: PreparacionCalculada[] = [];
@@ -217,7 +238,7 @@ export function construirPreparaciones(
           otro => otro.nombre !== ing.nombre && (catalogo?.incompatibilidades.includes(otro.nombre) ?? false)
         );
         const { capsulasPorToma, presentacionSugerida, cambioAutomaticoBloqueado, motivosBloqueo } =
-          calcularPresentacion(ing, catalogo, incompatibleConOtro);
+          calcularPresentacion(ing, catalogo, incompatibleConOtro, reglas);
         return {
           ...ing,
           capsulasPorToma,

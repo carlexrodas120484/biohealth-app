@@ -140,7 +140,7 @@ describe('PUT /api/pacientes/[id]/formulacion — borrador y aprobación', () =>
     expect(body.estado).toBe('borrador');
     expect(body.firmadaEn).toBeNull();
 
-    const formulaBuilder = from.mock.results[4].value;
+    const formulaBuilder = from.mock.results[5].value;
     const [payload] = formulaBuilder.upsert.mock.calls[0];
     expect(payload.firmada).toBe(false);
     expect(payload.estado).toBe('borrador');
@@ -176,7 +176,7 @@ describe('PUT /api/pacientes/[id]/formulacion — borrador y aprobación', () =>
     expect(body.estado).toBe('aprobada');
     expect(body.firmadaEn).not.toBeNull();
 
-    const formulaBuilder = from.mock.results[4].value;
+    const formulaBuilder = from.mock.results[5].value;
     const [payload] = formulaBuilder.upsert.mock.calls[0];
     expect(payload.firmada).toBe(true);
     expect(payload.firmada_por).toBe(USUARIO.id);
@@ -201,7 +201,7 @@ describe('PUT /api/pacientes/[id]/formulacion — borrador y aprobación', () =>
   it('actualiza mediante upsert sin duplicar', async () => {
     const from = usarMock(USUARIO, [TENANT_ROW, PACIENTE_ROW, OBJETIVOS_CONFIRMADOS, SIN_CATALOGO, { error: null }]);
     await PUT(putReq(datosBase()), paramsCon(ID_VALIDO));
-    const formulaBuilder = from.mock.results[4].value;
+    const formulaBuilder = from.mock.results[5].value;
     expect(formulaBuilder.upsert).toHaveBeenCalledTimes(1);
     const [, opciones] = formulaBuilder.upsert.mock.calls[0];
     expect(opciones).toEqual({ onConflict: 'tenant_id,paciente_id' });
@@ -240,6 +240,41 @@ describe('PUT /api/pacientes/[id]/formulacion — motor de reglas', () => {
     const body = await res.json();
     expect(body.preparaciones[0].ingredientes[0].presentacionSugerida).toBe('capsula');
     expect(body.preparaciones[0].requiereEnmascararSabor).toBe(true);
+  });
+
+  it('usa un principio VALIDADO de la Base de Conocimiento para las reglas 3/4, aunque no esté en catalogo_formulacion', async () => {
+    const PRINCIPIO_VALIDADO = { data: [{ id: 'pa-1', nombre_canonico: 'Magnesio', estado: 'validado' }], error: null };
+    usarMock(USUARIO, [
+      TENANT_ROW, PACIENTE_ROW, OBJETIVOS_CONFIRMADOS,
+      SIN_CATALOGO, PRINCIPIO_VALIDADO,
+      { data: [], error: null }, // sinonimos_principios
+      { data: [{ principio_id: 'pa-1', forma: 'sobre', capacidad_capsula_mg: 500, preferida: true }], error: null }, // presentaciones_farmaceuticas
+      { data: [{ principio_id: 'pa-1', intensidad_sabor: 4, solubilidad: null }], error: null }, // propiedades_organolepticas
+      { data: [], error: null }, // dosis_principios (maxima)
+      { data: [], error: null }, // incompatibilidades_formulacion
+      { error: null }, // upsert final
+    ]);
+    const res = await PUT(putReq(datosBase({ ingredientes: [{ id: 'mg', nombre: 'Magnesio', dosisPorTomaMg: 3000, vecesPorDia: 1, horario: 'desayuno' }] })), paramsCon(ID_VALIDO));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    // amargor 4 (>= umbral de la regla 4) bloquea el cambio automático a sobre, aunque este principio no esté en catalogo_formulacion.
+    expect(body.preparaciones[0].ingredientes[0].presentacionSugerida).toBe('sobre');
+    expect(body.preparaciones[0].requiereEnmascararSabor).toBe(true);
+  });
+
+  it('ignora un principio en la Base de Conocimiento que NO está validado (borrador/en_revision no llegan al motor)', async () => {
+    const PRINCIPIO_NO_VALIDADO = { data: [], error: null }; // la ruta filtra por estado='validado' en la consulta misma
+    usarMock(USUARIO, [
+      TENANT_ROW, PACIENTE_ROW, OBJETIVOS_CONFIRMADOS,
+      SIN_CATALOGO, PRINCIPIO_NO_VALIDADO,
+      { error: null },
+    ]);
+    const res = await PUT(putReq(datosBase({ ingredientes: [{ id: 'mg', nombre: 'Magnesio', dosisPorTomaMg: 3000, vecesPorDia: 1, horario: 'desayuno' }] })), paramsCon(ID_VALIDO));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    // sin catálogo (ni de catalogo_formulacion ni de la Base de Conocimiento), aplica el default: 1000mg/cápsula, sin bloqueo de sabor.
+    expect(body.preparaciones[0].ingredientes[0].presentacionSugerida).toBe('sobre');
+    expect(body.preparaciones[0].requiereEnmascararSabor).toBe(false);
   });
 
   it('agrupa por horario (regla 6)', async () => {

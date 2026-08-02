@@ -16,7 +16,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect('/login');
 
   const { data: usuario } = await supabase
-    .from('usuarios').select('nombre').eq('auth_id', user.id).single();
+    .from('usuarios').select('nombre, rol').eq('auth_id', user.id).single();
+
+  const nav = (usuario as any)?.rol === 'medico_titular'
+    ? [...NAV, { href: '/admin/base-conocimiento', label: 'Base de conocimiento' }]
+    : NAV;
 
   return (
     <div className="flex min-h-screen bg-crema">
@@ -25,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-oro">Método</p>
           <p className="font-serif text-2xl text-choco-deep">BioHealth</p>
         </div>
-        {NAV.map(item => (
+        {nav.map(item => (
           <Link key={item.href} href={item.href} className="mb-0.5 block rounded-md px-2.5 py-2 text-[13.5px] text-choco-mid hover:bg-crema">
             {item.label}
           </Link>
