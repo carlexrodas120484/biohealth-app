@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { calcularPuntajes } from '@/lib/clinica/cuestionario';
+import { calcularPuntajes, construirResumenClinico, VERSION_CUESTIONARIO } from '@/lib/clinica/cuestionario';
 import { HistoriaClinicaSchema, RespuestasScreeningSchema } from '@/lib/validation/historia';
 import { resolverTenantId } from '@/lib/tenant';
 import { esUuidValido } from '@/lib/validation/id';
@@ -51,12 +51,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const respuestasGuardadas = (data as { respuestas?: Record<string, number> } | null)?.respuestas ?? {};
+
   return NextResponse.json({
     historia: (data as { historia?: unknown } | null)?.historia ?? {},
-    respuestas: (data as { respuestas?: unknown } | null)?.respuestas ?? {},
+    respuestas: respuestasGuardadas,
     puntajes: (data as { puntajes?: unknown } | null)?.puntajes ?? {},
     completado: (data as { completado?: boolean } | null)?.completado ?? false,
+    version: (data as { version?: number } | null)?.version ?? null,
     updatedAt: (data as { updated_at?: string } | null)?.updated_at ?? null,
+    resumen: construirResumenClinico(respuestasGuardadas),
   });
 }
 
@@ -93,7 +97,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // upsert por (tenant_id, paciente_id): crea la historia si todavía no
   // existe, la actualiza si ya existe — nunca duplica, hay una unique
-  // constraint sobre ese par de columnas.
+  // constraint sobre ese par de columnas. tenant_id y paciente_id salen
+  // siempre de `ctx` (ya verificado arriba), nunca del body, así que no
+  // hay forma de que este upsert pise la historia de otro paciente.
   const { data, error } = await (ctx.supabase.from('historias_clinicas') as any)
     .upsert(
       {
@@ -103,6 +109,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         respuestas: respuestas.data,
         puntajes,
         completado: Boolean(cuerpo.completado),
+        version: VERSION_CUESTIONARIO,
       },
       { onConflict: 'tenant_id,paciente_id' }
     )
@@ -111,5 +118,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true, puntajes, updatedAt: (data as { updated_at: string }).updated_at });
+  return NextResponse.json({
+    ok: true,
+    puntajes,
+    version: VERSION_CUESTIONARIO,
+    updatedAt: (data as { updated_at: string }).updated_at,
+    resumen: construirResumenClinico(respuestas.data),
+  });
 }

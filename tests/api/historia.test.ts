@@ -88,7 +88,14 @@ describe('GET /api/pacientes/[id]/historia', () => {
     const res = await GET(new NextRequest('http://localhost/x'), paramsCon(ID_VALIDO));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ historia: {}, respuestas: {}, puntajes: {}, completado: false, updatedAt: null });
+    expect(body.historia).toEqual({});
+    expect(body.respuestas).toEqual({});
+    expect(body.puntajes).toEqual({});
+    expect(body.completado).toBe(false);
+    expect(body.updatedAt).toBeNull();
+    expect(body.version).toBeNull();
+    expect(body.resumen.topSintomas).toEqual([]);
+    expect(body.resumen.advertencia).toEqual(expect.any(String));
   });
 
   it('carga la historia existente sin duplicarla, filtrando por tenant_id', async () => {

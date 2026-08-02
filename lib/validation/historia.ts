@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PREGUNTAS_SCREENING } from '@/lib/clinica/cuestionario';
 
 /**
  * Campos de la historia clínica (Paso 1). Coincide 1:1 con los campos que
@@ -44,5 +45,16 @@ export const HistoriaClinicaSchema = z
 
 export type HistoriaClinicaValues = z.infer<typeof HistoriaClinicaSchema>;
 
-/** Respuestas del cuestionario funcional (Paso 2): escala 0–4 por pregunta. */
-export const RespuestasScreeningSchema = z.record(z.number().int().min(0).max(4));
+/**
+ * Respuestas del cuestionario funcional (Paso 2): escala 0–4 por
+ * pregunta. La clave debe ser el id de una pregunta activa y real — una
+ * clave que no corresponde a ninguna pregunta se rechaza (422) en vez de
+ * guardarse silenciosamente como dato huérfano.
+ */
+const IDS_PREGUNTAS_ACTIVAS = PREGUNTAS_SCREENING.filter(p => p.activo).map(p => p.id);
+const IdPreguntaSchema =
+  IDS_PREGUNTAS_ACTIVAS.length > 0
+    ? z.enum(IDS_PREGUNTAS_ACTIVAS as [string, ...string[]])
+    : z.never();
+
+export const RespuestasScreeningSchema = z.record(IdPreguntaSchema, z.number().int().min(0).max(4));
