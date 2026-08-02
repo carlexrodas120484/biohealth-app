@@ -8,8 +8,32 @@ type Item = { id: string; nombre: string };
 type Puntaje = { puntos: number; maximo: number; porcentaje: number };
 type Hallazgo = { id: string; parametro: string; valor: string; referencia: string; severidad: 'ok' | 'med' | 'alto' };
 
+type EstadoPatron = 'sugerido' | 'confirmado' | 'descartado';
+type Prioridad = 'baja' | 'media' | 'alta' | 'urgente';
+type Evidencia = { fuente: 'cuestionario' | 'historia' | 'bioescaner'; descripcion: string; aporte: number };
+type PatronFuncional = {
+  codigo: string; nombre: string; descripcion: string; puntaje: number; nivel: string;
+  prioridad: Prioridad; evidencias: Evidencia[]; fechaCalculo: string; version: number;
+  estado: EstadoPatron; observacionesMedico: string;
+};
+type DecisionLocal = { estado: EstadoPatron; prioridad: Prioridad; observacionesMedico: string };
+type ContextoPaciente = {
+  antecedentesPersonales: string | null; antecedentesFamiliares: string | null;
+  medicamentosActuales: string | null; alergias: string | null;
+};
+
 const DOMINIOS = ['Digestivo', 'Metabólico', 'Inflamatorio', 'Mitocondrial', 'Neuroendocrino', 'Hormonal', 'Inmunológico', 'Detoxificación', 'Cardiovascular', 'Nutricional', 'Otro'];
 const input = 'w-full rounded-md border border-linea px-3 py-2 text-sm focus:border-oro-claro focus:outline-none focus:ring-2 focus:ring-oro/10';
+const ETIQUETA_NIVEL: Record<string, string> = {
+  sin_alteracion: 'Sin evidencia relevante', leve: 'Evidencia leve', moderada: 'Evidencia moderada',
+  alta: 'Evidencia alta', muy_alta: 'Evidencia muy alta',
+};
+const ETIQUETA_ESTADO: Record<EstadoPatron, string> = { sugerido: 'Sugerido', confirmado: 'Confirmado', descartado: 'Descartado' };
+
+function formatearFecha(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('es-PY', { dateStyle: 'medium', timeStyle: 'short' });
+}
 
 export function DiagnosticoFuncionalForm({ pacienteId }: { pacienteId: string }) {
   const [alteraciones, setAlteraciones] = useState<Alteracion[]>([]);
@@ -20,17 +44,38 @@ export function DiagnosticoFuncionalForm({ pacienteId }: { pacienteId: string })
   const [confirmado, setConfirmado] = useState(false);
   const [puntajes, setPuntajes] = useState<Record<string, Puntaje>>({});
   const [hallazgos, setHallazgos] = useState<Hallazgo[]>([]);
+  const [patrones, setPatrones] = useState<PatronFuncional[]>([]);
+  const [decisiones, setDecisiones] = useState<Record<string, DecisionLocal>>({});
+  const [contextoPaciente, setContextoPaciente] = useState<ContextoPaciente | null>(null);
+  const [actualizadoEn, setActualizadoEn] = useState<string | null>(null);
+  const [advertencia, setAdvertencia] = useState('Resultado de cribado funcional. No sustituye diagnóstico médico.');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [esError, setEsError] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/pacientes/${pacienteId}/diagnostico`).then(r => r.json()).then(body => {
-      setAlteraciones(body.alteraciones ?? []); setPerpetuadores(body.perpetuadores ?? []);
-      setDeficits(body.deficits ?? []); setImpresion(body.impresion ?? ''); setEstudios(body.estudios ?? '');
-      setConfirmado(body.confirmado ?? false); setPuntajes(body.evidencia?.puntajes ?? {});
-      setHallazgos(body.evidencia?.hallazgos ?? []);
-    }).finally(() => setCargando(false));
+    let cancelado = false;
+    fetch(`/api/pacientes/${pacienteId}/diagnostico`)
+      .then(r => r.json())
+      .then(body => {
+        if (cancelado) return;
+        setAlteraciones(body.alteraciones ?? []); setPerpetuadores(body.perpetuadores ?? []);
+        setDeficits(body.deficits ?? []); setImpresion(body.impresion ?? ''); setEstudios(body.estudios ?? '');
+        setConfirmado(body.confirmado ?? false); setPuntajes(body.evidencia?.puntajes ?? {});
+        setHallazgos(body.evidencia?.hallazgos ?? []);
+        const patronesRecibidos: PatronFuncional[] = body.patrones ?? [];
+        setPatrones(patronesRecibidos);
+        setDecisiones(Object.fromEntries(patronesRecibidos.map(p => [p.codigo, {
+          estado: p.estado, prioridad: p.prioridad, observacionesMedico: p.observacionesMedico,
+        }])));
+        setContextoPaciente(body.contextoPaciente ?? null);
+        setActualizadoEn(body.updatedAt ?? null);
+        if (body.advertencia) setAdvertencia(body.advertencia);
+      })
+      .catch(() => { if (!cancelado) { setMensaje('No se pudo cargar el diagnóstico funcional.'); setEsError(true); } })
+      .finally(() => { if (!cancelado) setCargando(false); });
+    return () => { cancelado = true; };
   }, [pacienteId]);
 
   const agregarAlteracion = (nombre = '', dominio = DOMINIOS[0]) => setAlteraciones(prev => [...prev, {
@@ -46,26 +91,96 @@ export function DiagnosticoFuncionalForm({ pacienteId }: { pacienteId: string })
     agregarAlteracion(h.parametro, 'Otro');
   }
 
+  const DECISION_VACIA: DecisionLocal = { estado: 'sugerido', prioridad: 'baja', observacionesMedico: '' };
+
+  function cambiarDecision(codigo: string, cambio: Partial<DecisionLocal>) {
+    setDecisiones(prev => ({
+      ...prev,
+      [codigo]: { ...DECISION_VACIA, ...prev[codigo], ...cambio },
+    }));
+  }
+
   async function guardar(confirmar = confirmado) {
-    setGuardando(true); setMensaje('');
-    const res = await fetch(`/api/pacientes/${pacienteId}/diagnostico`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        alteraciones: alteraciones.filter(a => a.nombre.trim()), perpetuadores: perpetuadores.filter(x => x.nombre.trim()),
-        deficits: deficits.filter(x => x.nombre.trim()), impresion, estudios, confirmado: confirmar,
-      }),
-    });
-    const body = await res.json();
-    if (res.ok) { setConfirmado(confirmar); setMensaje(confirmar ? 'Diagnóstico confirmado y guardado.' : 'Borrador diagnóstico guardado.'); }
-    else setMensaje(body.error ?? 'No se pudo guardar.');
-    setGuardando(false);
+    setGuardando(true); setMensaje(''); setEsError(false);
+    try {
+      const res = await fetch(`/api/pacientes/${pacienteId}/diagnostico`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alteraciones: alteraciones.filter(a => a.nombre.trim()), perpetuadores: perpetuadores.filter(x => x.nombre.trim()),
+          deficits: deficits.filter(x => x.nombre.trim()), impresion, estudios, confirmado: confirmar,
+          decisionesPatrones: Object.entries(decisiones).map(([codigo, d]) => ({ codigo, ...d })),
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { setEsError(true); setMensaje(body.error || 'No se pudo guardar.'); return; }
+      setConfirmado(confirmar);
+      if (body.patrones) setPatrones(body.patrones);
+      setMensaje(confirmar ? 'Diagnóstico confirmado y guardado.' : 'Borrador diagnóstico guardado.');
+    } catch {
+      setEsError(true);
+      setMensaje('No se pudo guardar. Revisá tu conexión e intentá de nuevo.');
+    } finally {
+      setGuardando(false);
+    }
   }
 
   if (cargando) return <p className="text-sm text-choco-soft">Cargando diagnóstico funcional…</p>;
   const sistemas = Object.entries(puntajes).sort((a,b) => b[1].porcentaje - a[1].porcentaje);
   const relevantes = hallazgos.filter(h => h.severidad !== 'ok');
+  const patronesOrdenados = [...patrones].sort((a, b) => b.puntaje - a.puntaje);
 
   return <div className="space-y-5">
+    <section className="rounded-card border border-linea bg-white p-5">
+      <div className="mb-3 flex items-baseline justify-between">
+        <p className="text-[9.5px] font-semibold uppercase tracking-wider text-oro">Patrones funcionales sugeridos</p>
+        <p className="text-[11px] text-choco-soft">Última actualización: {formatearFecha(actualizadoEn)}</p>
+      </div>
+      {patronesOrdenados.length === 0 && (
+        <p className="text-sm text-choco-soft">Todavía no hay suficiente evidencia (cuestionario, historia o bioescáner) para sugerir patrones.</p>
+      )}
+      <div className="space-y-3">
+        {patronesOrdenados.map(p => {
+          const decision = decisiones[p.codigo] ?? { estado: p.estado, prioridad: p.prioridad, observacionesMedico: p.observacionesMedico };
+          return (
+            <div key={p.codigo} className="rounded-lg border border-linea p-4">
+              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-choco-deep">{p.nombre}</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="rounded-full bg-marfil px-2 py-0.5 text-choco-mid">{p.puntaje}% · {ETIQUETA_NIVEL[p.nivel] ?? p.nivel}</span>
+                  <span className="rounded-full border border-linea px-2 py-0.5 text-choco-soft">{ETIQUETA_ESTADO[decision.estado]}</span>
+                </div>
+              </div>
+              <p className="mb-2 text-xs text-choco-soft">{p.descripcion}</p>
+              <ul className="mb-3 space-y-1 text-[11.5px] text-choco-mid">
+                {p.evidencias.map((e, i) => <li key={i}>· {e.descripcion}</li>)}
+              </ul>
+              <div className="grid gap-2 sm:grid-cols-[auto_auto_1fr] sm:items-start">
+                <select className={`${input} sm:w-auto`} value={decision.prioridad} onChange={e => cambiarDecision(p.codigo, { prioridad: e.target.value as Prioridad })}>
+                  <option value="baja">Prioridad baja</option><option value="media">Prioridad media</option>
+                  <option value="alta">Prioridad alta</option><option value="urgente">Prioridad urgente</option>
+                </select>
+                <div className="flex gap-1.5">
+                  <button onClick={() => cambiarDecision(p.codigo, { estado: 'confirmado' })} className={`rounded-md border px-2.5 py-1.5 text-xs ${decision.estado === 'confirmado' ? 'border-fase-restore bg-fase-restore/10 text-fase-restore' : 'border-linea-fuerte text-choco-deep'}`}>Confirmar</button>
+                  <button onClick={() => cambiarDecision(p.codigo, { estado: 'descartado' })} className={`rounded-md border px-2.5 py-1.5 text-xs ${decision.estado === 'descartado' ? 'border-fase-reset bg-fase-reset/10 text-fase-reset' : 'border-linea-fuerte text-choco-deep'}`}>Descartar</button>
+                </div>
+                <textarea rows={1} className={input} placeholder="Observaciones del médico…" value={decision.observacionesMedico} onChange={e => cambiarDecision(p.codigo, { observacionesMedico: e.target.value })} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {contextoPaciente && (contextoPaciente.medicamentosActuales || contextoPaciente.alergias || contextoPaciente.antecedentesPersonales || contextoPaciente.antecedentesFamiliares) && (
+        <div className="mt-4 rounded-lg border border-linea bg-crema p-3 text-[11.5px] text-choco-mid">
+          <p className="mb-1 font-semibold text-choco-soft">A considerar antes de confirmar</p>
+          {contextoPaciente.medicamentosActuales && <p>Medicación actual: {contextoPaciente.medicamentosActuales}</p>}
+          {contextoPaciente.alergias && <p>Alergias: {contextoPaciente.alergias}</p>}
+          {contextoPaciente.antecedentesPersonales && <p>Antecedentes personales: {contextoPaciente.antecedentesPersonales}</p>}
+          {contextoPaciente.antecedentesFamiliares && <p>Antecedentes familiares: {contextoPaciente.antecedentesFamiliares}</p>}
+        </div>
+      )}
+      <p className="mt-3 text-[11px] text-choco-soft">{advertencia}</p>
+    </section>
+
     <section className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-card border border-linea bg-white p-5">
         <p className="mb-3 text-[9.5px] font-semibold uppercase tracking-wider text-oro">Evidencia · cuestionario</p>
@@ -110,7 +225,7 @@ export function DiagnosticoFuncionalForm({ pacienteId }: { pacienteId: string })
     </section>
 
     <p className="text-[11.5px] text-choco-soft">La evidencia se presenta como apoyo. El sistema no establece diagnósticos ni reemplaza el criterio médico.</p>
-    {mensaje && <p className="text-sm text-choco-mid">{mensaje}</p>}
+    {mensaje && <p className={`text-sm ${esError ? 'text-fase-reset' : 'text-choco-mid'}`}>{mensaje}</p>}
     <div className="flex gap-2"><button onClick={() => guardar(false)} disabled={guardando} className="rounded-md border border-linea-fuerte px-5 py-2.5 text-sm">Guardar borrador</button>
       <button onClick={() => guardar(true)} disabled={guardando || alteraciones.length === 0} className="rounded-md bg-choco-deep px-5 py-2.5 text-sm text-crema disabled:opacity-40">Confirmar diagnóstico</button></div>
   </div>;
