@@ -139,3 +139,15 @@ export function iptMaximoPorDominio(
   if (delDominio.length === 0) return 0;
   return Math.max(...delDominio.map(a => calcularIPT(a, pesos, jerarquia).final));
 }
+
+/**
+ * Punto de partida sugerido (no una decisión) para IC/IS/RV/EV/CB de una
+ * alteración recién agregada, a partir de su nivel jerárquico — así el
+ * médico ve un formulario con valores razonables para ajustar en vez de
+ * ceros vacíos, sin que el sistema le imponga una puntuación clínica.
+ */
+export function sugerirPuntuacionPorNivel(nivel: NivelJerarquico): number {
+  if (nivel === 'primaria') return 4;
+  if (nivel === 'secundaria') return 3;
+  return 2;
+}

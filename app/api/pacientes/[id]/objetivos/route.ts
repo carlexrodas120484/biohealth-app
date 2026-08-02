@@ -49,7 +49,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       fase: fase.fase_seleccionada,
       objetivosDisponibles: info.objetivos,
       semanasMinimas: info.semanasMinimas,
-      objetivos: vigente ? guardado?.objetivos ?? [] : [],
+      // Sin objetivos guardados todavía: parte con todos los objetivos de la
+      // fase confirmada pre-seleccionados (sugerencia editable), en vez de un
+      // formulario vacío que obligue a tildar uno por uno.
+      objetivos: vigente ? guardado?.objetivos ?? info.objetivos : info.objetivos,
       semanasPrevistas: vigente ? guardado?.semanas_previstas ?? info.semanasMinimas : info.semanasMinimas,
       confirmado: vigente ? Boolean(guardado?.confirmado) : false,
     });

@@ -2,11 +2,7 @@
 
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { StepRail } from '@/components/flujo/StepRail';
-
-const RUTA_POR_PASO = [
-  'historia', 'cuestionario', 'bioescaner', 'diagnostico', 'ipt',
-  'fase', 'objetivos', 'formulacion', 'nutricion', 'control', 'informes',
-];
+import { RUTA_POR_PASO } from '@/lib/flujo/pasos';
 
 export default function ConsultaLayout({ children }: { children: React.ReactNode }) {
   const { id } = useParams<{ id: string }>();

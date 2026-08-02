@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Paso5IPT } from '@/components/flujo/Paso5IPT';
-import type { AlteracionInput } from '@/lib/algoritmo/ipt';
+import { sugerirPuntuacionPorNivel, type AlteracionInput, type NivelJerarquico } from '@/lib/algoritmo/ipt';
+import { siguientePaso } from '@/lib/flujo/pasos';
 
 type Alteracion = Pick<AlteracionInput, 'id' | 'nombre' | 'dominio' | 'nivel'>;
 type Evaluacion = Pick<AlteracionInput, 'perpetuadorActivo' | 'cronicidadMeses' | 'IC' | 'IS' | 'RV' | 'EV' | 'CB'> & { alteracionId: string };
@@ -17,11 +19,14 @@ const CRITERIOS: { clave: Criterio; nombre: string; ayuda: string }[] = [
 ];
 const select = 'w-full rounded-md border border-linea bg-white px-2 py-2 text-sm focus:border-oro-claro focus:outline-none focus:ring-2 focus:ring-oro/10';
 
-function nuevaEvaluacion(id: string): Evaluacion {
-  return { alteracionId: id, perpetuadorActivo: false, cronicidadMeses: 0, IC: 0, IS: 0, RV: 0, EV: 0, CB: 0 };
+/** Sin evaluación previa: parte de un valor sugerido por nivel jerárquico, no de cero — el médico lo ajusta antes de confirmar. */
+function nuevaEvaluacion(id: string, nivel: NivelJerarquico = 'secundaria'): Evaluacion {
+  const sugerido = sugerirPuntuacionPorNivel(nivel);
+  return { alteracionId: id, perpetuadorActivo: false, cronicidadMeses: 0, IC: sugerido, IS: sugerido, RV: sugerido, EV: sugerido, CB: sugerido };
 }
 
 export function IPTForm({ pacienteId }: { pacienteId: string }) {
+  const router = useRouter();
   const [alteraciones, setAlteraciones] = useState<Alteracion[]>([]);
   const [evaluaciones, setEvaluaciones] = useState<Evaluacion[]>([]);
   const [diagnosticoConfirmado, setDiagnosticoConfirmado] = useState(false);
@@ -38,7 +43,7 @@ export function IPTForm({ pacienteId }: { pacienteId: string }) {
       const guardadas = (body.evaluaciones ?? []) as Evaluacion[];
       const porId = new Map(guardadas.map(e => [e.alteracionId, e]));
       setAlteraciones(alts);
-      setEvaluaciones(alts.map(a => porId.get(a.id) ?? nuevaEvaluacion(a.id)));
+      setEvaluaciones(alts.map(a => porId.get(a.id) ?? nuevaEvaluacion(a.id, a.nivel)));
       setDiagnosticoConfirmado(Boolean(body.diagnosticoConfirmado));
       setConfirmado(Boolean(body.confirmado));
     }).catch(e => setMensaje(e instanceof Error ? e.message : 'No se pudo cargar el IPT.'))
@@ -46,7 +51,7 @@ export function IPTForm({ pacienteId }: { pacienteId: string }) {
   }, [pacienteId]);
 
   const entradas = useMemo<AlteracionInput[]>(() => alteraciones.map(a => {
-    const e = evaluaciones.find(x => x.alteracionId === a.id) ?? nuevaEvaluacion(a.id);
+    const e = evaluaciones.find(x => x.alteracionId === a.id) ?? nuevaEvaluacion(a.id, a.nivel);
     return { ...a, ...e };
   }), [alteraciones, evaluaciones]);
 
@@ -64,6 +69,10 @@ export function IPTForm({ pacienteId }: { pacienteId: string }) {
     if (res.ok) {
       setConfirmado(confirmar);
       setMensaje(confirmar ? 'IPT confirmado y guardado.' : 'Borrador IPT guardado.');
+      if (confirmar) {
+        const siguiente = siguientePaso('ipt');
+        if (siguiente) router.push(`/pacientes/${pacienteId}/${siguiente}`);
+      }
     } else setMensaje(body.error ?? 'No se pudo guardar el IPT.');
     setGuardando(false);
   }
@@ -80,7 +89,7 @@ export function IPTForm({ pacienteId }: { pacienteId: string }) {
 
     <section className="space-y-4">
       {alteraciones.map(a => {
-        const e = evaluaciones.find(x => x.alteracionId === a.id) ?? nuevaEvaluacion(a.id);
+        const e = evaluaciones.find(x => x.alteracionId === a.id) ?? nuevaEvaluacion(a.id, a.nivel);
         return <article key={a.id} className="rounded-card border border-linea bg-white p-5">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
             <div><h3 className="font-serif text-xl text-choco-deep">{a.nombre}</h3><p className="text-xs text-choco-soft">{a.dominio} · Jerarquía {a.nivel}</p></div>

@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Paso6Fase } from '@/components/flujo/Paso6Fase';
 import { DOMINIOS, FASES, type Fase } from '@/lib/algoritmo/fases';
 import type { AlteracionInput } from '@/lib/algoritmo/ipt';
+import { siguientePaso } from '@/lib/flujo/pasos';
 
 type Alteracion = Pick<AlteracionInput, 'id' | 'nombre' | 'dominio' | 'nivel'>;
 type Evaluacion = Omit<AlteracionInput, 'id' | 'nombre' | 'dominio' | 'nivel'> & { alteracionId: string };
@@ -17,6 +19,7 @@ const OPCIONES = [
 const input = 'w-full rounded-md border border-linea bg-white px-3 py-2 text-sm focus:border-oro-claro focus:outline-none focus:ring-2 focus:ring-oro/10';
 
 export function FaseTerapeuticaForm({ pacienteId }: { pacienteId: string }) {
+  const router = useRouter();
   const [alteraciones, setAlteraciones] = useState<Alteracion[]>([]);
   const [evaluaciones, setEvaluaciones] = useState<Evaluacion[]>([]);
   const [clasificaciones, setClasificaciones] = useState<Clasificacion[]>([]);
@@ -66,6 +69,10 @@ export function FaseTerapeuticaForm({ pacienteId }: { pacienteId: string }) {
     if (res.ok) {
       setFaseSugerida(b.resultado.fase); setConfirmado(confirmar);
       setMensaje(confirmar ? 'Fase terapéutica confirmada y guardada.' : 'Borrador de fase guardado.');
+      if (confirmar) {
+        const siguiente = siguientePaso('fase');
+        if (siguiente) router.push(`/pacientes/${pacienteId}/${siguiente}`);
+      }
     } else setMensaje(b.error ?? 'No se pudo guardar la fase.');
     setGuardando(false);
   }

@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Paso7Objetivos } from '@/components/flujo/Paso7Objetivos';
 import { FASES, type Fase } from '@/lib/algoritmo/fases';
+import { siguientePaso } from '@/lib/flujo/pasos';
 
 type Respuesta = {
   fase: Fase;
@@ -14,6 +16,7 @@ type Respuesta = {
 };
 
 export function ObjetivosTerapeuticosForm({ pacienteId }: { pacienteId: string }) {
+  const router = useRouter();
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
   const [semanas, setSemanas] = useState(0);
@@ -60,6 +63,10 @@ export function ObjetivosTerapeuticosForm({ pacienteId }: { pacienteId: string }
     if (res.ok) {
       setConfirmado(confirmar);
       setMensaje(confirmar ? 'Objetivos terapéuticos confirmados y guardados.' : 'Borrador de objetivos guardado.');
+      if (confirmar) {
+        const siguiente = siguientePaso('objetivos');
+        if (siguiente) router.push(`/pacientes/${pacienteId}/${siguiente}`);
+      }
     } else setMensaje(b.error ?? 'No se pudieron guardar los objetivos.');
     setGuardando(false);
   }

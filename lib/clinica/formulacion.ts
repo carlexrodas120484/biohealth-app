@@ -344,26 +344,36 @@ export function generarAlertas(entrada: {
  */
 export type SugerenciaPrincipioActivo = {
   id: string; nombre: string; objetivo: string; precaucion: string; evidencia: 'B' | 'C' | 'D'; fuente: string;
+  /**
+   * Referencia bibliográfica genérica de dosis habitual (texto libre,
+   * ej. "5 g/día en ayunas") y forma farmacéutica de referencia — NUNCA
+   * es la dosis final ni se usa para calcular cápsulas/sobres. Sólo
+   * sirve para prellenar el formulario y ahorrarle tipeo al médico; la
+   * dosis que efectivamente se firma es siempre la que el médico
+   * confirma o corrige antes de aprobar la fórmula.
+   */
+  referenciaDosis?: string;
+  presentacionReferencia?: Presentacion;
 };
 
 export const SUGERENCIAS_POR_OBJETIVO: Record<string, SugerenciaPrincipioActivo[]> = {
   'Reparar mucosa intestinal': [
-    { id: 'l-glutamina', nombre: 'L-glutamina', objetivo: 'Reparar mucosa intestinal', precaucion: 'Individualizar en enfermedad hepática, renal o contexto oncológico.', evidencia: 'C', fuente: 'Material docente aportado' },
-    { id: 'zinc-carnosina', nombre: 'Zinc-L-carnosina', objetivo: 'Reparar mucosa intestinal', precaucion: 'Considerar aporte total de zinc y uso prolongado.', evidencia: 'C', fuente: 'Material docente aportado' },
+    { id: 'l-glutamina', nombre: 'L-glutamina', objetivo: 'Reparar mucosa intestinal', precaucion: 'Individualizar en enfermedad hepática, renal o contexto oncológico.', evidencia: 'C', fuente: 'Material docente aportado', referenciaDosis: '5 g/día, en ayunas', presentacionReferencia: 'sobre' },
+    { id: 'zinc-carnosina', nombre: 'Zinc-L-carnosina', objetivo: 'Reparar mucosa intestinal', precaucion: 'Considerar aporte total de zinc y uso prolongado.', evidencia: 'C', fuente: 'Material docente aportado', referenciaDosis: '75 mg, 2 veces al día', presentacionReferencia: 'capsula' },
   ],
   'Disminuir inflamación': [
-    { id: 'omega-3', nombre: 'Omega-3 (EPA + DHA)', objetivo: 'Disminuir inflamación', precaucion: 'Revisar anticoagulantes, antiagregantes y riesgo hemorrágico.', evidencia: 'B', fuente: 'Manual profesional; validar indicación' },
-    { id: 'curcumina', nombre: 'Curcumina', objetivo: 'Disminuir inflamación', precaucion: 'Revisar anticoagulación, patología biliar e interacciones.', evidencia: 'C', fuente: 'Material docente aportado' },
+    { id: 'omega-3', nombre: 'Omega-3 (EPA + DHA)', objetivo: 'Disminuir inflamación', precaucion: 'Revisar anticoagulantes, antiagregantes y riesgo hemorrágico.', evidencia: 'B', fuente: 'Manual profesional; validar indicación', referenciaDosis: '1-2 g/día con comida', presentacionReferencia: 'capsula' },
+    { id: 'curcumina', nombre: 'Curcumina', objetivo: 'Disminuir inflamación', precaucion: 'Revisar anticoagulación, patología biliar e interacciones.', evidencia: 'C', fuente: 'Material docente aportado', referenciaDosis: '500 mg, 1-2 veces al día con comida', presentacionReferencia: 'capsula' },
   ],
   'Mejorar microbiota': [
-    { id: 'probiotico', nombre: 'Probiótico con cepa identificada', objetivo: 'Mejorar microbiota', precaucion: 'Seleccionar cepa según indicación; cautela en inmunosupresión grave.', evidencia: 'C', fuente: 'Material docente aportado' },
-    { id: 's-boulardii', nombre: 'Saccharomyces boulardii', objetivo: 'Mejorar microbiota', precaucion: 'Evitar en pacientes críticos, inmunosupresión grave o con catéter venoso central.', evidencia: 'C', fuente: 'Material docente aportado' },
+    { id: 'probiotico', nombre: 'Probiótico con cepa identificada', objetivo: 'Mejorar microbiota', precaucion: 'Seleccionar cepa según indicación; cautela en inmunosupresión grave.', evidencia: 'C', fuente: 'Material docente aportado', referenciaDosis: 'Según UFC de la cepa elegida, 1 vez al día', presentacionReferencia: 'capsula' },
+    { id: 's-boulardii', nombre: 'Saccharomyces boulardii', objetivo: 'Mejorar microbiota', precaucion: 'Evitar en pacientes críticos, inmunosupresión grave o con catéter venoso central.', evidencia: 'C', fuente: 'Material docente aportado', referenciaDosis: '250-500 mg, 2 veces al día', presentacionReferencia: 'capsula' },
   ],
   'Optimizar digestión enzimática': [
-    { id: 'enzimas-digestivas', nombre: 'Complejo de enzimas digestivas', objetivo: 'Optimizar digestión enzimática', precaucion: 'Definir composición según clínica; no sustituye evaluación pancreática o biliar.', evidencia: 'D', fuente: 'Resumen de fórmula aportado' },
+    { id: 'enzimas-digestivas', nombre: 'Complejo de enzimas digestivas', objetivo: 'Optimizar digestión enzimática', precaucion: 'Definir composición según clínica; no sustituye evaluación pancreática o biliar.', evidencia: 'D', fuente: 'Resumen de fórmula aportado', referenciaDosis: '1 toma al inicio de cada comida principal', presentacionReferencia: 'capsula' },
   ],
   'Restaurar pH gástrico': [
-    { id: 'betaina-hcl', nombre: 'Betaína HCl', objetivo: 'Restaurar pH gástrico', precaucion: 'No usar sin evaluar gastritis, úlcera, reflujo y medicación gastroprotectora.', evidencia: 'D', fuente: 'Formulario aportado' },
+    { id: 'betaina-hcl', nombre: 'Betaína HCl', objetivo: 'Restaurar pH gástrico', precaucion: 'No usar sin evaluar gastritis, úlcera, reflujo y medicación gastroprotectora.', evidencia: 'D', fuente: 'Formulario aportado', referenciaDosis: '650 mg al inicio de comidas con proteína', presentacionReferencia: 'capsula' },
   ],
 };
 

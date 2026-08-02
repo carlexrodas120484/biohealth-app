@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { siguientePaso } from '@/lib/flujo/pasos';
 
 type Severidad = 'ok' | 'med' | 'alto';
 type Hallazgo = { id: string; parametro: string; valor: string; referencia: string; severidad: Severidad };
@@ -9,6 +11,7 @@ const input = 'w-full rounded-md border border-linea px-3 py-2 text-sm focus:bor
 const ETIQUETA: Record<Severidad, string> = { ok: 'Normal', med: 'Medio', alto: 'Alto' };
 
 export function BioescanerForm({ pacienteId }: { pacienteId: string }) {
+  const router = useRouter();
   const [fecha, setFecha] = useState('');
   const [equipo, setEquipo] = useState('');
   const [observaciones, setObservaciones] = useState('');
@@ -41,6 +44,10 @@ export function BioescanerForm({ pacienteId }: { pacienteId: string }) {
     const body = await res.json();
     setMensaje(res.ok ? 'Bioescáner guardado correctamente.' : body.error ?? 'No se pudo guardar.');
     setGuardando(false);
+    if (res.ok) {
+      const siguiente = siguientePaso('bioescaner');
+      if (siguiente) router.push(`/pacientes/${pacienteId}/${siguiente}`);
+    }
   }
 
   async function subir(archivo?: File) {

@@ -1,8 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { siguientePaso } from '@/lib/flujo/pasos';
 
-type Sugerencia = { id: string; nombre: string; objetivo: string; precaucion: string; evidencia: 'B' | 'C' | 'D'; fuente: string };
+type Sugerencia = {
+  id: string; nombre: string; objetivo: string; precaucion: string; evidencia: 'B' | 'C' | 'D'; fuente: string;
+  referenciaDosis?: string; presentacionReferencia?: string;
+};
 type Item = { id: string; nombre: string; dosis: string; presentacion: string; cantidad: string; indicacion: string; observaciones: string; evidencia?: string; fuente?: string };
 type RevisionClinica = { pesoKg: string; embarazoLactancia: string; funcionRenal: string; funcionHepatica: string; laboratorios: string; diagnosticoConfirmado: boolean };
 
@@ -41,6 +46,7 @@ function ingredienteVacio(): Ingrediente {
 }
 
 export function FormulacionTerapeuticaForm({ pacienteId }: { pacienteId: string }) {
+  const router = useRouter();
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [seguridad, setSeguridad] = useState(false);
@@ -70,7 +76,14 @@ export function FormulacionTerapeuticaForm({ pacienteId }: { pacienteId: string 
 
   function agregar(s: Sugerencia) {
     if (items.some(i => i.id === s.id)) return;
-    setItems(prev => [...prev, { id: s.id, nombre: s.nombre, dosis: '', presentacion: '', cantidad: '', indicacion: '', observaciones: s.precaucion, evidencia: s.evidencia, fuente: s.fuente }]);
+    // Prellena con la referencia bibliográfica de dosis habitual — el
+    // médico la revisa, ajusta o reemplaza antes de poder firmar; nunca
+    // se guarda así "por defecto" (el botón de firmar exige revisión
+    // explícita de seguridad + contraseña, sin importar este prellenado).
+    setItems(prev => [...prev, {
+      id: s.id, nombre: s.nombre, dosis: s.referenciaDosis ?? '', presentacion: s.presentacionReferencia ?? '',
+      cantidad: '', indicacion: '', observaciones: s.precaucion, evidencia: s.evidencia, fuente: s.fuente,
+    }]);
     setSeguridad(false);
   }
 
@@ -101,6 +114,10 @@ export function FormulacionTerapeuticaForm({ pacienteId }: { pacienteId: string 
       setPreparaciones(b.preparaciones ?? []); setAlertas(b.alertas ?? []); setEstado(b.estado ?? estado);
       setPassword('');
       setMensaje(firmar ? 'Fórmula firmada y guardada.' : 'Formulación guardada.');
+      if (firmar && b.estado === 'aprobada') {
+        const siguiente = siguientePaso('formulacion');
+        if (siguiente) router.push(`/pacientes/${pacienteId}/${siguiente}`);
+      }
     } catch {
       setEsError(true);
       setMensaje('No se pudo guardar. Revisá tu conexión e intentá de nuevo.');
@@ -169,6 +186,7 @@ export function FormulacionTerapeuticaForm({ pacienteId }: { pacienteId: string 
           </div>
           <div className="mt-3 grid gap-2">
             {(item.evidencia || item.fuente) && <p className="text-[11px] text-choco-soft">Evidencia {item.evidencia ?? 'sin clasificar'} · {item.fuente ?? 'fuente no registrada'}</p>}
+            {item.evidencia && <p className="text-[10.5px] italic text-oro">Dosis y presentación prellenadas como referencia bibliográfica — revisá y ajustá antes de firmar.</p>}
             <input disabled={bloqueada} className={campo} placeholder="Dosis definida por el médico" value={item.dosis} onChange={e => actualizar(item.id, 'dosis', e.target.value)} />
             <div className="grid gap-2 sm:grid-cols-2">
               <input disabled={bloqueada} className={campo} placeholder="Presentación o vehículo" value={item.presentacion ?? ''} onChange={e => actualizar(item.id, 'presentacion', e.target.value)} />

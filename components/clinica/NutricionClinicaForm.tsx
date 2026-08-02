@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { siguientePaso } from '@/lib/flujo/pasos';
 
 type EstadoPlan = 'borrador' | 'sugerido' | 'revisado' | 'aprobado' | 'archivado';
 type Horario = 'desayuno' | 'media_manana' | 'almuerzo' | 'media_tarde' | 'cena' | 'antes_de_dormir';
@@ -41,6 +43,7 @@ function formatearFecha(iso: string | null): string {
 }
 
 export function NutricionClinicaForm({ pacienteId }: { pacienteId: string }) {
+  const router = useRouter();
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [objetivoClinico, setObjetivoClinico] = useState('mantenimiento');
   const [pesoKg, setPesoKg] = useState(70);
@@ -86,6 +89,10 @@ export function NutricionClinicaForm({ pacienteId }: { pacienteId: string }) {
       if (!res.ok) { setEsError(true); setMensaje(b.error ?? 'No se pudo guardar el plan nutricional.'); return; }
       setCalculos(b.calculos); setAdvertencias(b.advertencias ?? []); setEstado(b.estado ?? nuevoEstado);
       setMensaje(nuevoEstado === 'aprobado' ? 'Plan nutricional aprobado.' : 'Plan nutricional guardado.');
+      if (nuevoEstado === 'aprobado') {
+        const siguiente = siguientePaso('nutricion');
+        if (siguiente) router.push(`/pacientes/${pacienteId}/${siguiente}`);
+      }
     } catch {
       setEsError(true);
       setMensaje('No se pudo guardar. Revisá tu conexión e intentá de nuevo.');

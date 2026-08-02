@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { siguientePaso } from '@/lib/flujo/pasos';
 
 type Nivel = 'primaria' | 'secundaria' | 'terciaria';
 type Alteracion = { id: string; nombre: string; nivel: Nivel; dominio: string; justificacion: string };
@@ -36,6 +38,7 @@ function formatearFecha(iso: string | null): string {
 }
 
 export function DiagnosticoFuncionalForm({ pacienteId }: { pacienteId: string }) {
+  const router = useRouter();
   const [alteraciones, setAlteraciones] = useState<Alteracion[]>([]);
   const [perpetuadores, setPerpetuadores] = useState<Item[]>([]);
   const [deficits, setDeficits] = useState<Item[]>([]);
@@ -116,6 +119,10 @@ export function DiagnosticoFuncionalForm({ pacienteId }: { pacienteId: string })
       setConfirmado(confirmar);
       if (body.patrones) setPatrones(body.patrones);
       setMensaje(confirmar ? 'Diagnóstico confirmado y guardado.' : 'Borrador diagnóstico guardado.');
+      if (confirmar) {
+        const siguiente = siguientePaso('diagnostico');
+        if (siguiente) router.push(`/pacientes/${pacienteId}/${siguiente}`);
+      }
     } catch {
       setEsError(true);
       setMensaje('No se pudo guardar. Revisá tu conexión e intentá de nuevo.');

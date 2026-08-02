@@ -3,6 +3,7 @@ import {
   calcularCapsulasPorToma, calcularPresentacion, agruparPorHorario, separarIncompatibles,
   calcularCargaTotalMg, calcularDosisDiariaTotalMg, calcularCantidadParaDuracion, detectarDuplicados,
   excedeLimite, construirPreparaciones, generarAlertas, clasificarSabor,
+  sugerirPrincipiosActivos, SUGERENCIAS_POR_OBJETIVO,
   CAPACIDAD_CAPSULA_MG_DEFECTO, LIMITE_CAPSULAS_ANTES_DE_SOBRE,
   type IngredienteFormula, type InfoCatalogo,
 } from '../../lib/clinica/formulacion';
@@ -256,5 +257,30 @@ describe('generarAlertas', () => {
 
   it('no genera ninguna alerta si no hay datos ni ingredientes', () => {
     expect(generarAlertas({ ingredientes: [], catalogoPorNombre: new Map(), paciente: pacienteVacio })).toEqual([]);
+  });
+});
+
+describe('sugerirPrincipiosActivos — recomendaciones para autogenerar la fórmula desde los objetivos', () => {
+  it('aplana las sugerencias de todos los objetivos confirmados', () => {
+    const sugerencias = sugerirPrincipiosActivos(['Reparar mucosa intestinal', 'Disminuir inflamación']);
+    expect(sugerencias.some(s => s.id === 'l-glutamina')).toBe(true);
+    expect(sugerencias.some(s => s.id === 'omega-3')).toBe(true);
+  });
+
+  it('sin objetivos no sugiere nada', () => {
+    expect(sugerirPrincipiosActivos([])).toEqual([]);
+  });
+
+  it('ignora un objetivo que no tiene sugerencias registradas', () => {
+    expect(sugerirPrincipiosActivos(['Objetivo sin catálogo'])).toEqual([]);
+  });
+
+  it('cada sugerencia trae una referencia de dosis y presentación para prellenar el formulario, nunca vacía', () => {
+    for (const lista of Object.values(SUGERENCIAS_POR_OBJETIVO)) {
+      for (const s of lista) {
+        expect(s.referenciaDosis).toBeTruthy();
+        expect(s.presentacionReferencia).toBeTruthy();
+      }
+    }
   });
 });

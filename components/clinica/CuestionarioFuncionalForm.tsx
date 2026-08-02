@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { siguientePaso } from '@/lib/flujo/pasos';
 import {
   ESCALA_SCREENING, PREGUNTAS_SCREENING, SISTEMAS_CUESTIONARIO,
   calcularPuntajes, ordenarPorSeveridad, obtenerTopSintomas,
@@ -15,6 +17,7 @@ function formatearFecha(iso: string | null): string {
 }
 
 export function CuestionarioFuncionalForm({ pacienteId }: { pacienteId: string }) {
+  const router = useRouter();
   const [activo, setActivo] = useState(SISTEMAS_ORDENADOS[0].nombre);
   const [respuestas, setRespuestas] = useState<Record<string, number>>({});
   const [historia, setHistoria] = useState<Record<string, unknown>>({});
@@ -65,6 +68,10 @@ export function CuestionarioFuncionalForm({ pacienteId }: { pacienteId: string }
       }
       setActualizadoEn(body.updatedAt ?? null);
       setMensaje(completado ? 'Screening finalizado y guardado.' : 'Avance guardado.');
+      if (completado) {
+        const siguiente = siguientePaso('cuestionario');
+        if (siguiente) router.push(`/pacientes/${pacienteId}/${siguiente}`);
+      }
     } catch {
       setEsError(true);
       setMensaje('No se pudo guardar. Revisá tu conexión e intentá de nuevo.');

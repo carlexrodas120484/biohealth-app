@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { siguientePaso } from '@/lib/flujo/pasos';
 
 type Historia = Record<string, string | boolean>;
 
@@ -54,6 +56,7 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function HistoriaClinicaForm({ pacienteId }: { pacienteId: string }) {
+  const router = useRouter();
   const [v, setV] = useState<Historia>(INICIAL);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -107,6 +110,8 @@ export function HistoriaClinicaForm({ pacienteId }: { pacienteId: string }) {
         return;
       }
       setMensaje('Historia clínica guardada correctamente.');
+      const siguiente = siguientePaso('historia');
+      if (siguiente) router.push(`/pacientes/${pacienteId}/${siguiente}`);
     } catch {
       setEsError(true);
       setMensaje('No se pudo guardar. Revisá tu conexión e intentá de nuevo.');

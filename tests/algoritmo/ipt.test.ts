@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcularIPT, calcularRankingIPT, bandaDe, type AlteracionInput } from '../../lib/algoritmo/ipt';
+import { calcularIPT, calcularRankingIPT, bandaDe, sugerirPuntuacionPorNivel, type AlteracionInput } from '../../lib/algoritmo/ipt';
 
 /**
  * Caso de referencia: el mismo paciente mock usado en el prototipo
@@ -59,5 +59,20 @@ describe('bandaDe — bandas de prioridad', () => {
     [44, 'diferida'], [0, 'diferida'],
   ])('%i puntos → %s', (v, esperado) => {
     expect(bandaDe(v as number).banda).toBe(esperado);
+  });
+});
+
+describe('sugerirPuntuacionPorNivel — punto de partida editable, no una decisión', () => {
+  it('sugiere más puntuación cuanto más alta la jerarquía', () => {
+    expect(sugerirPuntuacionPorNivel('primaria')).toBeGreaterThan(sugerirPuntuacionPorNivel('secundaria'));
+    expect(sugerirPuntuacionPorNivel('secundaria')).toBeGreaterThan(sugerirPuntuacionPorNivel('terciaria'));
+  });
+
+  it('siempre devuelve un valor dentro de la escala 0-5 del formulario', () => {
+    for (const nivel of ['primaria', 'secundaria', 'terciaria'] as const) {
+      const v = sugerirPuntuacionPorNivel(nivel);
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(5);
+    }
   });
 });
