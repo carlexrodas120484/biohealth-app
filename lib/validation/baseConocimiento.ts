@@ -7,7 +7,10 @@ export type EstadoPrincipio = z.infer<typeof EstadoPrincipioSchema>;
 export const UNIDADES_DOSIS = ['mg', 'g', 'mcg', 'ui', 'ml'] as const;
 export const UnidadDosisSchema = z.enum(UNIDADES_DOSIS);
 
-export const FORMAS_FARMACEUTICAS = ['capsula', 'sobre', 'liquido', 'comercial'] as const;
+// Ampliado por la Base Farmacotécnica del MIF (migración 0025) con
+// perlas/polvo/comprimidos — ampliación puramente aditiva: cualquier
+// valor válido antes sigue siendo válido.
+export const FORMAS_FARMACEUTICAS = ['capsula', 'sobre', 'liquido', 'perlas', 'polvo', 'comprimidos', 'comercial'] as const;
 export const FormaFarmaceuticaSchema = z.enum(FORMAS_FARMACEUTICAS);
 
 export const SEVERIDADES = ['leve', 'moderada', 'alta'] as const;

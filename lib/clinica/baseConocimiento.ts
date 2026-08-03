@@ -14,7 +14,7 @@
  */
 
 import { REGLAS_FORMULACION_DEFECTO, type InfoCatalogo, type Presentacion } from './formulacion';
-import { UNIDADES_DOSIS, type EstadoPrincipio } from '@/lib/validation/baseConocimiento';
+import { UNIDADES_DOSIS, FORMAS_FARMACEUTICAS, type EstadoPrincipio } from '@/lib/validation/baseConocimiento';
 
 export const COLUMNAS_CSV_PRINCIPIOS = [
   'nombre_canonico', 'nombre_comercial', 'sinonimos', 'descripcion',
@@ -162,7 +162,7 @@ export function validarFilaCSV(
   }
 
   const forma = datos.forma_farmaceutica?.trim();
-  if (forma && !['capsula', 'sobre', 'liquido', 'comercial'].includes(forma)) {
+  if (forma && !(FORMAS_FARMACEUTICAS as readonly string[]).includes(forma)) {
     errores.push({ columna: 'forma_farmaceutica', valor: forma, mensaje: `Forma farmacéutica inválida "${forma}".` });
   }
 
