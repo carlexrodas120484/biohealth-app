@@ -1,5 +1,7 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 import { PREGUNTAS_SCREENING } from '@/lib/clinica/cuestionario';
+
+const EstadoClinicoSchema = z.enum(['si', 'no', 'desconocido']);
 
 /**
  * Campos de la historia clínica (Paso 1). Coincide 1:1 con los campos que
@@ -20,6 +22,12 @@ export const HistoriaClinicaSchema = z
     inicioEvolucion: z.string().trim().max(2000),
     cirugias: z.string().trim().max(2000),
     hospitalizaciones: z.string().trim().max(2000),
+    medicamentos_actuales: z.string().trim().max(4000),
+    alergias: z.string().trim().max(2000),
+    embarazo: EstadoClinicoSchema,
+    lactancia: EstadoClinicoSchema,
+    deterioro_renal: EstadoClinicoSchema,
+    deterioro_hepatico: EstadoClinicoSchema,
     alimentacion: z.string().trim().max(2000),
     aguaLitros: z.number().min(0).max(20),
     suenoHoras: z.number().min(0).max(24),

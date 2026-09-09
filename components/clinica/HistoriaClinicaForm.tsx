@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,6 +13,9 @@ const CAMPOS_NUMERICOS = [
 
 const INICIAL: Historia = {
   motivo: '', enfermedadActual: '', inicioEvolucion: '', cirugias: '', hospitalizaciones: '',
+  medicamentos_actuales: '', alergias: '',
+  embarazo: 'desconocido', lactancia: 'desconocido',
+  deterioro_renal: 'desconocido', deterioro_hepatico: 'desconocido',
   alimentacion: '', aguaLitros: '', suenoHoras: '', estres: '', actividadFisica: '', bristol: '',
   peso: '', talla: '', presionArterial: '', frecuenciaCardiaca: '', saturacion: '', cintura: '',
   fiebrePersistente: false, perdidaPesoInvoluntaria: false, sangrado: false,
@@ -55,6 +58,29 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
   return <label className="block"><span className="mb-1.5 block text-[11px] text-choco-soft">{label}</span>{children}</label>;
 }
 
+function EstadoClinico({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Campo label={label}>
+      <select
+        className={input}
+        value={value || 'desconocido'}
+        onChange={e => onChange(e.target.value)}
+      >
+        <option value="desconocido">Desconocido</option>
+        <option value="no">No</option>
+        <option value="si">Si</option>
+      </select>
+    </Campo>
+  );
+}
 export function HistoriaClinicaForm({ pacienteId }: { pacienteId: string }) {
   const router = useRouter();
   const [v, setV] = useState<Historia>(INICIAL);
@@ -140,6 +166,24 @@ export function HistoriaClinicaForm({ pacienteId }: { pacienteId: string }) {
       </div>
     </section>
 
+    <section className="rounded-card border border-oro/20 bg-white p-5">
+      <p className="mb-4 text-[9.5px] font-semibold uppercase tracking-wider text-oro">Seguridad clinica</p>
+      <p className="mb-4 text-xs text-choco-soft">
+        Estos datos alimentan el motor de seguridad de formulacion. "Desconocido" nunca se interpreta como "No".
+      </p>
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Campo label="Medicamentos actuales">{texto('medicamentos_actuales')}</Campo>
+          <Campo label="Alergias">{texto('alergias')}</Campo>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <EstadoClinico label="Embarazo" value={String(v.embarazo ?? 'desconocido')} onChange={valor => set('embarazo', valor)} />
+          <EstadoClinico label="Lactancia" value={String(v.lactancia ?? 'desconocido')} onChange={valor => set('lactancia', valor)} />
+          <EstadoClinico label="Enfermedad / deterioro renal" value={String(v.deterioro_renal ?? 'desconocido')} onChange={valor => set('deterioro_renal', valor)} />
+          <EstadoClinico label="Enfermedad / deterioro hepatico" value={String(v.deterioro_hepatico ?? 'desconocido')} onChange={valor => set('deterioro_hepatico', valor)} />
+        </div>
+      </div>
+    </section>
     <section className="rounded-card border border-linea bg-white p-5">
       <p className="mb-4 text-[9.5px] font-semibold uppercase tracking-wider text-oro">Hábitos y estilo de vida</p>
       <div className="grid gap-4 sm:grid-cols-2">
