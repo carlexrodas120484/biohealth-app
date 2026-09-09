@@ -1,11 +1,19 @@
 import { FormulacionTerapeuticaForm } from '@/components/clinica/FormulacionTerapeuticaForm';
+import { SeguridadContextualPanel } from '@/components/clinica/SeguridadContextualPanel';
 
 export default async function FormulacionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <div className="mx-auto max-w-6xl">
-    <p className="mb-1 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-oro">Paso 8</p>
-    <h1 className="mb-1 font-serif text-3xl text-choco-deep">Formulación terapéutica</h1>
-    <p className="mb-5 text-[12.5px] text-choco-soft">El sistema sugiere opciones. El médico define dosis, revisa seguridad y firma.</p>
-    <FormulacionTerapeuticaForm pacienteId={id} />
-  </div>;
+
+  return (
+    <div className="mx-auto max-w-6xl">
+      <p className="mb-1 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-oro">Paso 8</p>
+      <h1 className="mb-1 font-serif text-3xl text-choco-deep">Formulación terapéutica</h1>
+      <p className="mb-5 text-[12.5px] text-choco-soft">
+        El sistema sugiere opciones. El médico define dosis, revisa seguridad y firma.
+      </p>
+
+      <SeguridadContextualPanel pacienteId={id} />
+      <FormulacionTerapeuticaForm pacienteId={id} />
+    </div>
+  );
 }
