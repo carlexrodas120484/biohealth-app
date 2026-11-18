@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; scroll-padding-top: 6rem; }
+  body { @apply bg-crema font-sans text-tinta antialiased; font-feature-settings: 'ss01'; }
+  ::selection { background: #e4c77e; color: #2b2925; }
+  :focus-visible { outline: 2px solid #c99624; outline-offset: 3px; }
+  input[type='date']::-webkit-calendar-picker-indicator { opacity: .55; cursor: pointer; }
+  select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238F6A14' stroke-width='1.6'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1.1rem; padding-right: 2.75rem !important; }
+}
+
+@layer components {
+  .contenedor { @apply mx-auto w-full max-w-contenido px-5 sm:px-8; }
+  .seccion { @apply py-20 sm:py-28; }
+  .etiqueta { @apply flex items-center gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-dorado-oscuro; }
+  .etiqueta::before { content: ''; @apply h-px w-8 bg-dorado; }
+  .etiqueta-campo { @apply block text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-tinta-suave; }
+  .titulo-pie { @apply text-[0.7rem] font-semibold uppercase tracking-[0.26em] text-dorado-claro; }
+  .enlace-nav { @apply relative py-2 transition-colors; }
+  .enlace-nav::after { content: ''; @apply absolute inset-x-0 bottom-0 h-px origin-left scale-x-0 bg-dorado transition-transform duration-300; }
+  .enlace-nav:hover::after { @apply scale-x-100; }
+  .saltar-contenido { @apply fixed left-4 top-4 z-[60] -translate-y-24 rounded-full bg-tinta px-5 py-3 text-sm text-white transition focus:translate-y-0; }
+  .revelar { opacity: 0; transform: translateY(22px); transition: opacity .9s cubic-bezier(.2,.7,.2,1), transform .9s cubic-bezier(.2,.7,.2,1); }
+  .revelar.es-visible { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  .revelar { opacity: 1; transform: none; }
+}
