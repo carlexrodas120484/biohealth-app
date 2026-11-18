@@ -35,9 +35,9 @@ export const centro = {
      * Ejemplo Paraguay: '595981123456'. Mientras esté vacío, WhatsApp se abre
      * con el mensaje listo para elegir el contacto manualmente.
      */
-    whatsapp: '',
+    whatsapp: '595973913205',
     /** Teléfono para mostrar (opcional). Ej.: '+595 981 123 456' */
-    telefonoVisible: '',
+    telefonoVisible: '+595 973 913 205',
     email: '',
   },
 
